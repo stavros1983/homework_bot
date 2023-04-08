@@ -14,9 +14,3 @@ class BotMalfunctionError(Exception):
     """Сбой в работе Бота."""
 
     pass
-
-
-class WrongTypeErorr(Exception):
-    """Неверный тип данных."""
-
-    pass
