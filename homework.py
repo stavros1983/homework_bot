@@ -7,6 +7,8 @@ from http import HTTPStatus
 import requests
 import telegram
 from dotenv import load_dotenv
+from exceptions import (WrongKeyError, UnknownWorkStatusException,
+                        BotMalfunctionError)
 
 load_dotenv()
 
@@ -25,12 +27,6 @@ HOMEWORK_VERDICTS = {
 }
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='program.log',
-    filemode='w',
-    format='%(asctime)s - %(levelname)s - %(message)s - %(name)s'
-)
 logger = logging.getLogger(__name__)
 logger.addHandler(
     logging.StreamHandler()
@@ -74,14 +70,14 @@ def get_api_answer(current_timestamp):
 
 def check_response(response):
     """Проверяет ответ API на корректность."""
-    if type(response) != dict:
+    if not isinstance(response, dict):
         raise TypeError('Ответ API отличен от словаря')
     try:
         homework = response['homeworks']
     except KeyError:
         message = 'Ошибка словаря по ключу homeworks'
         raise KeyError(message)
-    if type(homework) != list:
+    if not isinstance(response["homeworks"], list):
         raise TypeError('Неверный тип данных у элемента homeworks')
     return homework
 
@@ -89,13 +85,14 @@ def check_response(response):
 def parse_status(homework):
     """Извлекает из информации о конкретной домашней работе статус."""
     if 'homework_name' not in homework:
-        raise KeyError('Отсутствует ключ "homework_name" в ответе API')
+        raise WrongKeyError('Отсутствует ключ "homework_name" в ответе API')
     if 'status' not in homework:
-        raise KeyError('Отсутствует ключ "status" в ответе API')
+        raise WrongKeyError('Отсутствует ключ "status" в ответе API')
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     if homework_status not in HOMEWORK_VERDICTS:
-        raise Exception(f'Неизвестный статус работы: {homework_status}')
+        raise UnknownWorkStatusException(
+            f'Неизвестный статус работы: {homework_status}')
 
     verdict = HOMEWORK_VERDICTS[homework_status]
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
@@ -143,7 +140,7 @@ def main():
                 else:
                     logger.debug("Отсутствие в ответе новых статусов.")
                 current_timestamp = int(time.time())
-        except Exception as error:
+        except BotMalfunctionError as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
             send_message(message, bot)
@@ -152,4 +149,10 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename='program.log',
+        filemode='w',
+        format='%(asctime)s - %(levelname)s - %(message)s - %(name)s'
+    )
     main()
